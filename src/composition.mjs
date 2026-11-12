@@ -9,6 +9,12 @@ export const HEIGHT = 1920;
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const color = (value, fallback) => (/^#[0-9a-fA-F]{6}$/.test(value ?? '') ? value : fallback);
 const words = (text, cls = 'w') => esc(text).split(/\s+/).filter(Boolean).map((word) => `<span class="${cls}">${word}</span>`).join(' ');
+/** Largest box with the photo's own aspect ratio that fits inside max (never crops). */
+export function fitBox(width, height, maxW = 800, maxH = 960) {
+  if (!(width > 0) || !(height > 0)) return { w: maxW, h: maxH };
+  const scale = Math.min(maxW / width, maxH / height);
+  return { w: Math.round(width * scale), h: Math.round(height * scale) };
+}
 const norm = (value) => String(value ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 const MONTHS = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
@@ -79,7 +85,7 @@ export function buildComposition(spec) {
   const albumHtml = album ? `
     <div id="album" ${sceneAttrs(album)}>
       <p id="album-eyebrow">Pequeños instantes, grandes recuerdos</p>
-      ${photos.map((photo, i) => `<figure class="shot" id="shot-${i}"><img src="${esc(photo.src)}" alt="" /></figure>`).join('')}
+      ${photos.map((photo, i) => { const box = fitBox(photo.width, photo.height); return `<figure class="shot" id="shot-${i}" style="width:${box.w}px;height:${box.h}px;left:${Math.round((WIDTH - box.w) / 2)}px;top:${Math.round(330 + (960 - box.h) / 2)}px"><img src="${esc(photo.src)}" alt="" /></figure>`; }).join('')}
     </div>` : '';
   const whenHtml = when ? `
     <div id="when" ${sceneAttrs(when)}>
@@ -121,7 +127,6 @@ export function buildComposition(spec) {
       const start = 0.3 + i * 1.5;
       const tilt = [-3, 2.5, -2][i % 3];
       T(`tl.fromTo('#shot-${i}',{opacity:0,scale:0.86,rotation:${tilt * 2.4},x:${i % 2 ? 160 : -160}},{opacity:1,scale:1,rotation:${tilt},x:0,duration:0.7,ease:'expo.out'},${at(album, start)});`);
-      T(`tl.fromTo('#shot-${i} img',{scale:1.0},{scale:1.1,duration:1.6,ease:'none'},${at(album, start)});`);
       T(`tl.to('#shot-${i}',{opacity:0,y:-60,duration:0.3,ease:'power3.in'},${at(album, start + 1.4)});`);
     });
     T(`tl.to('#album-eyebrow',{opacity:0,duration:0.25,ease:'power2.in'},${at(album, album.length - 0.3)});`);
@@ -171,8 +176,8 @@ export function buildComposition(spec) {
   #note-text { font-family: var(--display); font-style: italic; font-size: 58px; line-height: 1.32; }
   #album { justify-content: center; padding-bottom: 420px; }
   #album-eyebrow { position: absolute; top: 220px; font-size: 34px; letter-spacing: .22em; text-transform: uppercase; color: var(--accent); }
-  .shot { position: absolute; top: 330px; left: 140px; width: 800px; height: 960px; overflow: hidden; border-radius: 28px; border: 14px solid #f7f0ff; box-shadow: 0 40px 100px #000a; background: #f7f0ff; }
-  .shot img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; }
+  .shot { position: absolute; overflow: hidden; border-radius: 28px; border: 14px solid #f7f0ff; box-shadow: 0 40px 100px #000a; background: #f7f0ff; }
+  .shot img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: contain; }
   #when { justify-content: center; padding-bottom: 420px; gap: 10px; }
   .when-eyebrow { font-size: 36px; letter-spacing: .3em; text-transform: uppercase; color: var(--accent); }
   #when-date { display: flex; flex-direction: column; align-items: center; margin: 18px 0 4px; }

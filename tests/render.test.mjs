@@ -50,3 +50,14 @@ test('asset picking prefers the phone image and own music', () => {
   assert.equal(a.music, 'https://s/a.mp3');
   assert.equal(a.photos[0].url, 'https://invita.wmsolutions.tech/api/invita/media/tok/1');
 });
+
+import { fitBox } from '../src/composition.mjs';
+test('photos keep their own aspect ratio inside the frame (no cropping)', () => {
+  assert.deepEqual(fitBox(600, 900), { w: 640, h: 960 });
+  assert.deepEqual(fitBox(1600, 900), { w: 800, h: 450 });
+  assert.deepEqual(fitBox(1000, 1000), { w: 800, h: 800 });
+  assert.deepEqual(fitBox(0, 0), { w: 800, h: 960 });
+  const html = buildComposition({ title: 'F', eventDate: '2026-11-23T15:00:00Z', photos: [{ src: 'assets/a.webp', width: 1600, height: 900 }] });
+  assert.match(html, /id="shot-0" style="width:800px;height:450px;left:140px;top:585px"/);
+  assert.match(html, /object-fit: contain/);
+});

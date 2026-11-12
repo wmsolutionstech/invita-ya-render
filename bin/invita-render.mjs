@@ -46,6 +46,15 @@ async function download(url, dest, maxBytes = 25 * 1024 * 1024) {
   await writeFile(dest, bytes);
 }
 
+/** Pixel size of an image (ffprobe ships with FFmpeg, already a prerequisite). */
+const imageSize = (file) => new Promise((resolveSize) => {
+  const child = spawn('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0:s=x', file], { stdio: ['ignore', 'pipe', 'ignore'] });
+  let out = '';
+  child.stdout.on('data', (chunk) => { out += chunk; });
+  child.on('error', () => resolveSize({}));
+  child.on('close', () => { const [width, height] = out.trim().split('x').map(Number); resolveSize({ width, height }); });
+});
+
 const run = (cmd, args, cwd) => new Promise((resolveRun, reject) => {
   const child = spawn(cmd, args, { cwd, stdio: 'inherit' });
   child.on('error', reject);
@@ -93,11 +102,11 @@ async function main() {
   if (args.photos) {
     const { readdir } = await import('node:fs/promises');
     const files = (await readdir(resolve(args.photos))).filter((f) => /\.(jpe?g|png|webp)$/i.test(f)).sort().slice(0, 3);
-    for (const [i, file] of files.entries()) { const dest = `assets/photo-${i}${extname(file).toLowerCase()}`; await copyFile(join(resolve(args.photos), file), join(project, dest)); photos.push({ src: dest }); }
+    for (const [i, file] of files.entries()) { const dest = `assets/photo-${i}${extname(file).toLowerCase()}`; await copyFile(join(resolve(args.photos), file), join(project, dest)); photos.push({ src: dest, ...(await imageSize(join(project, dest))) }); }
   } else {
     for (const [i, photo] of assets.photos.slice(0, 3).entries()) {
       const dest = `assets/photo-${i}.webp`;
-      try { await download(photo.url, join(project, dest)); photos.push({ src: dest, caption: photo.caption }); } catch { /* skip photos that fail */ }
+      try { await download(photo.url, join(project, dest)); photos.push({ src: dest, caption: photo.caption, ...(await imageSize(join(project, dest))) }); } catch { /* skip photos that fail */ }
     }
   }
 

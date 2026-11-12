@@ -52,9 +52,28 @@ const run = (cmd, args, cwd) => new Promise((resolveRun, reject) => {
   child.on('close', (code) => (code === 0 ? resolveRun() : reject(new Error(`${cmd} terminó con código ${code}`))));
 });
 
+const QUICK_HINT = 'Alternativa sencilla: en Invita-Ya abre tu invitación y pulsa «Crear video ahora» (no instala nada).';
+
+/** Friendly pre-flight so a missing tool never ends in a cryptic stack trace. */
+async function checkPrerequisites() {
+  const missing = [];
+  if (Number(process.versions.node.split('.')[0]) < 22) missing.push(`Node 22 o superior (tienes ${process.versions.node})`);
+  const ffmpeg = await new Promise((resolveCheck) => {
+    const child = spawn('ffmpeg', ['-version'], { stdio: 'ignore' });
+    child.on('error', () => resolveCheck(false));
+    child.on('close', (code) => resolveCheck(code === 0));
+  });
+  if (!ffmpeg) missing.push('FFmpeg (instálalo con «brew install ffmpeg» en Mac o desde ffmpeg.org)');
+  if (missing.length) {
+    console.error(`Faltan requisitos:\n - ${missing.join('\n - ')}\n\n${QUICK_HINT}`);
+    process.exit(2);
+  }
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help || args._.length === 0) { process.stdout.write(USAGE); process.exit(args.help ? 0 : 1); }
+  await checkPrerequisites();
   const base = args.base ?? 'https://invita.wmsolutions.tech';
   const { origin, token } = parseTarget(args._[0], base);
   const out = resolve(args.out ?? 'invitacion.mp4');
@@ -102,4 +121,4 @@ async function main() {
   if (!args.keep) await rm(project, { recursive: true, force: true });
 }
 
-main().catch((error) => { console.error(`Error: ${error.message}`); process.exit(1); });
+main().catch((error) => { console.error(`Error: ${error.message}\n\n${QUICK_HINT}`); process.exit(1); });

@@ -1,0 +1,10 @@
+{
+  "name": "invita-ya-render",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Renders Invita-Ya invitations to vertical MP4 with HyperFrames on the user's own machine.",
+  "bin": { "invita-render": "bin/invita-render.mjs" },
+  "scripts": { "test": "node --test tests/*.test.mjs" },
+  "engines": { "node": ">=22" }
+}

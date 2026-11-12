@@ -25,7 +25,7 @@ test('scenes adapt to the data and the root duration covers them', () => {
   const full = buildComposition({ ...base, message: 'Hola a todos', photos: [{ src: 'assets/a.webp' }, { src: 'assets/b.webp' }] });
   assert.ok(full.includes('id="album"') && full.includes('id="shot-1"'));
   const total = Number(/data-composition-id="main" data-start="0" data-duration="([\d.]+)"/.exec(full)[1]);
-  assert.ok(total > 24 && total < 45);
+  assert.ok(total > 24 && total < 55);
 });
 
 test('date and time formatting use Lima time and 12-hour clock', () => {
@@ -58,6 +58,15 @@ test('photos keep their own aspect ratio inside the frame (no cropping)', () => 
   assert.deepEqual(fitBox(1000, 1000), { w: 800, h: 800 });
   assert.deepEqual(fitBox(0, 0), { w: 800, h: 960 });
   const html = buildComposition({ title: 'F', eventDate: '2026-11-23T15:00:00Z', photos: [{ src: 'assets/a.webp', width: 1600, height: 900 }] });
-  assert.match(html, /id="shot-0" style="width:800px;height:450px;left:140px;top:585px"/);
+  assert.match(html, /id="shot-0" style="width:800px;height:450px;left:140px;top:705px"/);
   assert.match(html, /object-fit: contain/);
+});
+
+test('the whole message is shown (never cut) and its size adapts to the length', () => {
+  const long = '¡La misión está por comenzar! Prepárate para una celebración llena de música, baile y diversión. Nuestra estrella está de cumpleaños y queremos que seas parte de esta aventura. ¡Tu presencia es muy importante para hacer de este día un momento inolvidable! 🎉✨';
+  const html = buildComposition({ title: 'F', eventDate: '2026-11-23T15:00:00Z', message: long });
+  assert.ok(html.includes('inolvidable!</span> <span class="nw">🎉✨</span>'));
+  assert.match(html, /id="note-text" style="font-size:4[28]px"/);
+  const short = buildComposition({ title: 'F', eventDate: '2026-11-23T15:00:00Z', message: 'Te esperamos' });
+  assert.match(short, /id="note-text" style="font-size:66px"/);
 });

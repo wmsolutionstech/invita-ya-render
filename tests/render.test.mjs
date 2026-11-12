@@ -25,11 +25,11 @@ test('scenes adapt to the data and the root duration covers them', () => {
   const full = buildComposition({ ...base, message: 'Hola a todos', photos: [{ src: 'assets/a.webp' }, { src: 'assets/b.webp' }] });
   assert.ok(full.includes('id="album"') && full.includes('id="shot-1"'));
   const total = Number(/data-composition-id="main" data-start="0" data-duration="([\d.]+)"/.exec(full)[1]);
-  assert.ok(total > 12 && total < 30);
+  assert.ok(total > 24 && total < 45);
 });
 
 test('date and time formatting use Lima time and 12-hour clock', () => {
-  assert.deepEqual(describeDate('2026-11-23T15:17:00+00:00'), { day: '23', month: 'NOV', weekday: 'lunes', year: '2026' });
+  assert.deepEqual(describeDate('2026-11-23T15:17:00+00:00'), { day: '23', month: 'NOV', monthIndex: 10, weekday: 'lunes', year: '2026' });
   assert.equal(formatTime('12:17'), '12:17 p. m.');
   assert.equal(formatTime('00:05'), '12:05 a. m.');
   assert.equal(formatTime('nope'), null);

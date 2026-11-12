@@ -18,6 +18,7 @@ export function fitBox(width, height, maxW = 800, maxH = 960) {
 const norm = (value) => String(value ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 const MONTHS = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+const MONTH_NAMES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const DAYS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
 export function describeDate(iso, timeZone = 'America/Lima') {
@@ -25,7 +26,7 @@ export function describeDate(iso, timeZone = 'America/Lima') {
   if (Number.isNaN(date.getTime())) return null;
   const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone, day: 'numeric', month: 'numeric', year: 'numeric', weekday: 'long' }).formatToParts(date).map((p) => [p.type, p.value]));
   const dayIndex = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].indexOf(parts.weekday);
-  return { day: parts.day, month: MONTHS[Number(parts.month) - 1], weekday: DAYS[dayIndex], year: parts.year };
+  return { day: parts.day, month: MONTHS[Number(parts.month) - 1], monthIndex: Number(parts.month) - 1, weekday: DAYS[dayIndex], year: parts.year };
 }
 
 export function formatTime(value) {
@@ -57,19 +58,25 @@ export function buildComposition(spec) {
   let cursor = 0;
   const scenes = [];
   const add = (id, length) => { scenes.push({ id, start: cursor, length }); cursor += length; return scenes[scenes.length - 1]; };
-  const hero = add('hero', 4.4);
-  const note = message ? add('note', Math.min(5.2, 2.4 + message.split(/\s+/).length * 0.16)) : null;
-  const album = photos.length ? add('album', photos.length * 1.5 + 0.6) : null;
-  const when = date ? add('when', 3.6) : null;
-  const close = add('close', 3.6);
+  const hero = add('hero', 6.4);
+  const note = message ? add('note', Math.min(7, 3.2 + message.split(/\s+/).length * 0.2)) : null;
+  const album = photos.length ? add('album', photos.length * 2.1 + 0.7) : null;
+  const when = date ? add('when', 5) : null;
+  const close = add('close', 10);
   const total = Math.round(cursor * 100) / 100;
   const at = (scene, offset = 0) => (scene.start + offset).toFixed(3);
 
+  // A wide/square artwork would lose its protagonists when cropped to 9:16, so it is shown whole in a framed print.
+  const heroAspect = spec.heroWidth > 0 && spec.heroHeight > 0 ? spec.heroWidth / spec.heroHeight : 0;
+  const framed = Boolean(spec.heroImage) && heroAspect >= 0.72;
+  const framedTop = 660;
+  const artBox = framed ? fitBox(spec.heroWidth, spec.heroHeight, 900, 840) : null;
   const heroImage = spec.heroImage ? `<img id="bg-img" src="${esc(spec.heroImage)}" alt="" />` : '';
   const sceneAttrs = (s) => `class="clip scene" data-start="${s.start}" data-duration="${s.length}" data-track-index="2"`;
 
   const heroHtml = `
     <div id="hero" ${sceneAttrs(hero)}>
+      ${framed ? `<figure id="hero-art" style="width:${artBox.w}px;height:${artBox.h}px;left:${Math.round((WIDTH - artBox.w) / 2)}px;top:${framedTop}px"><img src="${esc(spec.heroImage)}" alt="" /></figure>` : ''}
       <p id="hero-welcome">¡Estás invitado/a!</p>
       <h1 id="hero-title">${words(spec.title)}</h1>
       ${showHonoree ? `<p id="hero-honoree">${esc(spec.honoree)}</p>` : ''}
@@ -96,11 +103,23 @@ export function buildComposition(spec) {
       ${spec.place ? `<p class="when-row" id="when-place">${esc(spec.place)}</p>` : ''}
       ${spec.address ? `<p class="when-row small" id="when-address">${esc(spec.address)}</p>` : ''}
     </div>` : '';
+  // Deterministic sparkles (seeded), so every render is identical.
+  let seed = 20261112;
+  const rand = () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const sparks = Array.from({ length: 26 }, (_, i) => ({ i, x: Math.round(rand() * 1000 + 40), y: Math.round(rand() * 1100 + 500), size: Math.round(22 + rand() * 34), delay: Math.round(rand() * 650) / 100, spin: Math.round((rand() - 0.5) * 120) }));
+  const recap = [date ? `${date.day} de ${MONTH_NAMES[Number(date.monthIndex)]}${time ? ` · ${time}` : ''}` : '', spec.place ?? ''].filter(Boolean);
   const closeHtml = `
     <div id="close" ${sceneAttrs(close)}>
+      <div id="close-sparks">${sparks.map((sp) => `<i class="spark" id="sp-${sp.i}" style="left:${sp.x}px;top:${sp.y}px;font-size:${sp.size}px">✦</i>`).join('')}</div>
+      <p id="close-eyebrow">Con todo cariño</p>
       <h2 id="close-title">${words('Será un día inolvidable', 'cw')}</h2>
       <div id="close-rule"></div>
       <p id="close-note">Tu presencia lo hará aún más especial</p>
+      <div id="final">
+        <p id="final-heart">♥</p>
+        <h2 id="final-title">${words('Te esperamos', 'fw')}</h2>
+        ${recap.map((line, i) => `<p class="final-line" id="final-line-${i}">${esc(line)}</p>`).join('')}
+      </div>
     </div>`;
 
   // ---- timeline -----------------------------------------------------------------------------------------------
@@ -112,7 +131,11 @@ export function buildComposition(spec) {
   T(`tl.fromTo('#hero-welcome',{opacity:0,y:30},{opacity:1,y:0,duration:0.6,ease:'power3.out'},${at(hero, 0.15)});`);
   T(`tl.fromTo('#hero-title .w',{opacity:0,filter:'blur(14px)',y:50},{opacity:1,filter:'blur(0px)',y:0,duration:0.7,ease:'expo.out',stagger:0.14},${at(hero, 0.35)});`);
   if (showHonoree) T(`tl.fromTo('#hero-honoree',{opacity:0,filter:'blur(8px)'},{opacity:1,filter:'blur(0px)',duration:0.5,ease:'power2.out'},${at(hero, 1.3)});`);
-  if (showAge) T(`tl.fromTo('#hero-age',{opacity:0,scale:0.3,rotation:-12},{opacity:1,scale:1,rotation:0,duration:0.9,ease:'back.out(1.6)'},${at(hero, 1.1)});`);
+  if (framed) {
+    T(`tl.fromTo('#hero-art',{opacity:0,scale:0.92,y:60},{opacity:1,scale:1,y:0,duration:1.1,ease:'expo.out'},${at(hero, 0.9)});`);
+    T(`tl.fromTo('#hero-art',{rotation:0},{rotation:-1.2,duration:${(hero.length - 2).toFixed(2)},ease:'sine.inOut'},${at(hero, 2)});`);
+  }
+  if (showAge) T(`tl.fromTo('#hero-age',{opacity:0,scale:0.3,rotation:-12},{opacity:1,scale:1,rotation:0,duration:0.9,ease:'back.out(1.6)'},${at(hero, framed ? 1.9 : 1.1)});`);
   T(`tl.to('#hero > *',{opacity:0,filter:'blur(10px)',duration:0.3,ease:'power2.in'},${at(hero, hero.length - 0.35)});`);
   // note
   if (note) {
@@ -139,10 +162,18 @@ export function buildComposition(spec) {
     T(`tl.fromTo('#when .when-row',{opacity:0,y:40},{opacity:1,y:0,duration:0.6,ease:'power3.out',stagger:0.18},${at(when, 1.1)});`);
     T(`tl.to('#when > *',{opacity:0,duration:0.3,ease:'power2.in'},${at(when, when.length - 0.35)});`);
   }
-  // close
-  T(`tl.fromTo('#close-title .cw',{opacity:0,y:70,filter:'blur(12px)'},{opacity:1,y:0,filter:'blur(0px)',duration:0.8,ease:'expo.out',stagger:0.16},${at(close, 0.1)});`);
-  T(`tl.fromTo('#close-rule',{scaleX:0},{scaleX:1,duration:0.7,ease:'power3.out'},${at(close, 0.9)});`);
-  T(`tl.fromTo('#close-note',{opacity:0,y:24},{opacity:1,y:0,duration:0.7,ease:'power3.out'},${at(close, 1.2)});`);
+  // close: stage 1 (message) -> stage 2 (final recap). The last line holds for the final 3 s.
+  const stage2 = 4.6;
+  sparks.forEach((sp) => T(`tl.fromTo('#sp-${sp.i}',{opacity:0,y:50,rotation:0,scale:0.5},{opacity:0.9,y:-180,rotation:${sp.spin},scale:1,duration:3.2,ease:'power1.out'},${at(close, sp.delay)});`));
+  sparks.forEach((sp) => T(`tl.to('#sp-${sp.i}',{opacity:0,duration:0.9,ease:'power1.in'},${at(close, Math.min(close.length - 1, sp.delay + 2.4))});`));
+  T(`tl.fromTo('#close-eyebrow',{opacity:0,y:20},{opacity:1,y:0,duration:0.6,ease:'power3.out'},${at(close, 0.2)});`);
+  T(`tl.fromTo('#close-title .cw',{opacity:0,y:70,filter:'blur(12px)'},{opacity:1,y:0,filter:'blur(0px)',duration:0.9,ease:'expo.out',stagger:0.18},${at(close, 0.5)});`);
+  T(`tl.fromTo('#close-rule',{scaleX:0},{scaleX:1,duration:0.8,ease:'power3.out'},${at(close, 1.6)});`);
+  T(`tl.fromTo('#close-note',{opacity:0,y:24},{opacity:1,y:0,duration:0.8,ease:'power3.out'},${at(close, 2.0)});`);
+  T(`tl.to(['#close-eyebrow','#close-title','#close-rule','#close-note'],{opacity:0,y:-40,filter:'blur(8px)',duration:0.45,ease:'power3.in'},${at(close, stage2 - 0.6)});`);
+  T(`tl.fromTo('#final-heart',{opacity:0,scale:0.2},{opacity:1,scale:1,duration:0.8,ease:'back.out(2)'},${at(close, stage2)});`);
+  T(`tl.fromTo('#final-title .fw',{opacity:0,y:60,scale:0.9,filter:'blur(10px)'},{opacity:1,y:0,scale:1,filter:'blur(0px)',duration:0.8,ease:'expo.out',stagger:0.2},${at(close, stage2 + 0.2)});`);
+  T(`tl.fromTo('#final .final-line',{opacity:0,y:30},{opacity:1,y:0,duration:0.7,ease:'power3.out',stagger:0.25},${at(close, stage2 + 1.2)});`);
 
   const audio = spec.music ? `<audio id="music" src="${esc(spec.music)}" data-start="0" data-duration="${total}" data-volume="0.9" data-fade-in="0.6" data-fade-out="1.2"></audio>` : '';
 
@@ -165,8 +196,14 @@ export function buildComposition(spec) {
   /* hero: title block sits at the top, age badge in the middle, nothing below the 1330px safe line */
   #hero { padding-top: 250px; }
   #hero-welcome { font-size: 40px; letter-spacing: .08em; color: #efe6ff; }
-  #hero-title { margin: 28px 70px 0; font-family: var(--display); font-weight: 800; font-size: 132px; line-height: 1.04; letter-spacing: -.02em; text-shadow: 0 6px 40px #0009; }
+  #hero-title { margin: 28px 70px 0; font-family: var(--display); font-weight: 800; font-size: 118px; line-height: 1.04; letter-spacing: -.02em; text-shadow: 0 6px 40px #0009; }
   #hero-honoree { margin-top: 26px; font-size: 52px; color: var(--accent); font-family: var(--display); font-style: italic; }
+  #root.framed #bg-img { opacity: .55; }
+  #hero-art { position: absolute; overflow: hidden; border-radius: 40px; border: 10px solid #f7f0ff; box-shadow: 0 50px 120px #000b, 0 0 0 18px color-mix(in srgb, var(--accent) 22%, transparent); }
+  #hero-art img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: contain; }
+  #root.framed #hero-age { position: absolute; right: 40px; top: 1290px; margin: 0; width: 280px; height: 280px; }
+  #root.framed #hero-age strong { font-size: 160px; }
+  #root.framed #hero-age span { font-size: 26px; }
   #hero-age { margin-top: 56px; width: 360px; height: 360px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 6px solid var(--accent); background: radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--accent) 34%, transparent), #120d2290 72%); box-shadow: 0 0 0 20px color-mix(in srgb, var(--accent) 16%, transparent), 0 30px 90px -20px var(--accent); }
   #hero-age strong { font-family: var(--display); font-size: 210px; line-height: .9; font-weight: 800; color: #fff; }
   #hero-age span { margin-top: 6px; font-size: 34px; letter-spacing: .38em; }
@@ -182,18 +219,26 @@ export function buildComposition(spec) {
   .when-eyebrow { font-size: 36px; letter-spacing: .3em; text-transform: uppercase; color: var(--accent); }
   #when-date { display: flex; flex-direction: column; align-items: center; margin: 18px 0 4px; }
   #when-date strong { font-family: var(--display); font-weight: 800; font-size: 330px; line-height: .86; }
-  #when-date span { font-size: 70px; letter-spacing: .4em; padding-left: .4em; color: var(--accent); font-weight: 600; }
+  #when-date span { margin-top: 16px; font-size: 70px; letter-spacing: .4em; padding-left: .4em; color: var(--accent); font-weight: 600; }
   #when-weekday { font-size: 42px; text-transform: capitalize; color: #efe6ff; margin-bottom: 40px; }
   .when-row { font-size: 56px; font-weight: 600; max-width: 900px; }
   .when-row.small { font-size: 38px; font-weight: 400; color: #e0d5f3; }
-  #close { justify-content: center; padding-bottom: 420px; }
+  #close { justify-content: center; padding-bottom: 300px; }
+  #close-sparks { position: absolute; inset: 0; pointer-events: none; }
+  .spark { position: absolute; color: var(--accent); text-shadow: 0 0 24px var(--accent); font-style: normal; }
+  #close-eyebrow { font-size: 34px; letter-spacing: .34em; text-transform: uppercase; color: var(--accent); margin-bottom: 36px; }
+  #final { position: absolute; left: 0; right: 0; top: 520px; display: flex; flex-direction: column; align-items: center; }
+  #final-heart { font-size: 120px; color: var(--accent); text-shadow: 0 0 50px var(--accent); line-height: 1; margin-bottom: 20px; }
+  #final-title { font-family: var(--display); font-weight: 800; font-size: 150px; line-height: 1.05; margin: 0 60px 50px; text-shadow: 0 6px 40px #0009; }
+  .final-line { font-size: 52px; font-weight: 600; margin: 8px 70px; color: #f4ecff; }
+  .fw { display: inline-block; }
   #close-title { margin: 0 80px; font-family: var(--display); font-weight: 800; font-size: 120px; line-height: 1.08; text-shadow: 0 6px 40px #0009; }
   #close-rule { width: 360px; height: 6px; margin: 44px 0 40px; background: linear-gradient(90deg, transparent, var(--accent), transparent); transform-origin: center; }
   #close-note { font-size: 46px; color: #efe6ff; max-width: 820px; line-height: 1.4; }
 </style>
 </head>
 <body>
-<div id="root" data-composition-id="main" data-start="0" data-duration="${total}" data-width="${WIDTH}" data-height="${HEIGHT}">
+<div id="root" class="${framed ? 'framed' : 'full'}" data-composition-id="main" data-start="0" data-duration="${total}" data-width="${WIDTH}" data-height="${HEIGHT}">
   <div id="bg" class="clip" data-start="0" data-duration="${total}" data-track-index="0">${heroImage}<div id="bg-fade"></div></div>
   ${heroHtml}${noteHtml}${albumHtml}${whenHtml}${closeHtml}
   ${audio}

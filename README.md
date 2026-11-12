@@ -19,9 +19,10 @@ Opciones: `--music <archivo>` (música local), `--photos <carpeta>` (hasta 3 fot
 ## Qué hace
 1. Lee la invitación pública (`/api/invita/public/<token>`): título, fecha, lugar, mensaje, colores, imagen vertical.
 2. Descarga solo recursos `https` a una carpeta temporal (máx. 25 MB c/u) o toma los locales que le indiques.
-3. Genera una composición HyperFrames (`src/composition.mjs`): título palabra por palabra, insignia de edad, mensaje,
-   álbum (polaroids), fecha/lugar y cierre **sin enlace**. El texto del usuario se escapa; nunca se inyecta como HTML.
-4. `hyperframes check` + `hyperframes render`.
+3. Elige el modo de portada: si la imagen es vertical (como la versión «Celular» generada con IA) va a pantalla completa; si es cuadrada o apaisada se muestra **entera** en un marco, para no recortar a las protagonistas.
+4. Genera una composición HyperFrames (`src/composition.mjs`): título palabra por palabra, insignia de edad, mensaje,
+   álbum (polaroids), fecha/lugar y un cierre en dos tiempos (mensaje con destellos y «Te esperamos» con resumen), **sin enlace**. Dura ≈ 25–36 s según los datos. El texto del usuario se escapa; nunca se inyecta como HTML.
+5. `hyperframes check` + `hyperframes render`.
 
 El render del servidor (FFmpeg) de Invita-Ya sigue siendo el respaldo para celulares, donde no puede correr HyperFrames.
 

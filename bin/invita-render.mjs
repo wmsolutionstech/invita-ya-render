@@ -95,8 +95,8 @@ async function main() {
   const project = join(tmpdir(), `invita-render-${token.slice(0, 8)}-${Date.now()}`);
   await mkdir(join(project, 'assets'), { recursive: true });
 
-  let heroImage;
-  if (assets.hero) { heroImage = 'assets/hero.png'; await download(assets.hero, join(project, heroImage)).catch(() => { heroImage = undefined; }); }
+  let heroImage; let heroSize = {};
+  if (assets.hero) { heroImage = 'assets/hero.png'; await download(assets.hero, join(project, heroImage)).catch(() => { heroImage = undefined; }); if (heroImage) heroSize = await imageSize(join(project, heroImage)); }
 
   const photos = [];
   if (args.photos) {
@@ -114,7 +114,7 @@ async function main() {
   if (args.music) { music = `assets/music${extname(args.music).toLowerCase()}`; await copyFile(resolve(args.music), join(project, music)); }
   else if (assets.music) { music = 'assets/music.mp3'; await download(assets.music, join(project, music)).catch(() => { music = undefined; }); }
 
-  const html = buildComposition({ ...assets.spec, heroImage, photos, music });
+  const html = buildComposition({ ...assets.spec, heroImage, heroWidth: heroSize.width, heroHeight: heroSize.height, photos, music });
   await writeFile(join(project, 'index.html'), html);
   await writeFile(join(project, 'hyperframes.json'), JSON.stringify({ name: 'invita-ya', resolution: 'portrait' }, null, 2));
   console.log(`Proyecto: ${project}`);
